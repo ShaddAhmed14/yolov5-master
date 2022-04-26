@@ -733,6 +733,16 @@ def clip_coords(boxes, shape):
         boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, shape[1])  # x1, x2
         boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
 
+# CLASSES=("__background__","person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light","fire hydrant","stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe","backpack","umbrella","handbag","tie","suitcase","frisbee","skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle","wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed","dining table","toilet","tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven","toaster","sink","refrigerator","book","clock","vase","scissors","teddy bear","hair drier","toothbrush")
+CLASSES= ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+        'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+        'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+        'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+        'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+        'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+        'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+        'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
+        'hair drier', 'toothbrush']
 
 def non_max_suppression(prediction,
                         conf_thres=0.25,
@@ -747,11 +757,12 @@ def non_max_suppression(prediction,
     Returns:
          list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
-
     bs = prediction.shape[0]  # batch size
     nc = prediction.shape[2] - 5  # number of classes
     xc = prediction[..., 4] > conf_thres  # candidates
-
+    boxes=[]
+    scores=[]
+    meta=[]
     # Checks
     assert 0 <= conf_thres <= 1, f'Invalid Confidence threshold {conf_thres}, valid values are between 0.0 and 1.0'
     assert 0 <= iou_thres <= 1, f'Invalid IoU {iou_thres}, valid values are between 0.0 and 1.0'
@@ -773,7 +784,12 @@ def non_max_suppression(prediction,
         x = x[xc[xi]]  # confidence
 
         # Cat apriori labels if autolabelling
-        if labels and len(labels[xi]):
+        # print("LABELS---------------------------------")
+        # print(labels, labels[xi]) # LABELS ARE EMPTY 
+        # # labels = CLASSES
+        # # print(labels)
+        # print("LABELS---------------------------------")
+        if labels and len(labels[xi]): # DOESNT RUN
             lb = labels[xi]
             v = torch.zeros((len(lb), nc + 5), device=x.device)
             v[:, :4] = lb[:, 1:5]  # box
@@ -790,25 +806,50 @@ def non_max_suppression(prediction,
 
         # Box (center x, center y, width, height) to (x1, y1, x2, y2)
         box = xywh2xyxy(x[:, :4])
+        #print("shape of box (of single image)")
+        #print(box.shape)
 
+        boxes.append(box)
         # Detections matrix nx6 (xyxy, conf, cls)
-        if multi_label:
-            i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
-            x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
-        else:  # best class only
-            conf, j = x[:, 5:].max(1, keepdim=True)
-            x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
+        #if multi_label:
+        conf, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
+        # conf, j = (x[:, 5:] > 0).nonzero(as_tuple=False).T
+        #    x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
+        #else:  # best class only
+        # print( x[:, 5:])
+        # conf, j = x[:, 5:] # .max(1, keepdim=True)
+        # conf = x[:, 5:] # .max(1, keepdim=True)
+        #    x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
+        # scores.append(conf)
+        # print(conf)
+        # if(len(conf) > 0):
+        #   scores.append(conf.max(0, keepdim=True))
+        # else: 
+        scores.append(conf)
 
+        # ------------------- META -------------------
+        # meta_kid = []
+        # for j in range(len(conf)): # for all boxes...
+        #   for i in range(len(CLASSES)): # for all classes 
+        #       if conf[j][i] > 0: # if score for that class is > 0 | Append the class 
+        #           meta_kid.append(CLASSES[i])
+
+        meta.append(j)
+        # ------------------- META -------------------
+
+
+        #print("shape of score of single image")
+        #print(conf.shape)
         # Filter by class
-        if classes is not None:
-            x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
+        #if classes is not None:
+        #    x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
 
         # Apply finite constraint
         # if not torch.isfinite(x).all():
         #     x = x[torch.isfinite(x).all(1)]
 
         # Check shape
-        n = x.shape[0]  # number of boxes
+        '''n = x.shape[0]  # number of boxes
         if not n:  # no boxes
             continue
         elif n > max_nms:  # excess boxes
@@ -832,8 +873,13 @@ def non_max_suppression(prediction,
         if (time.time() - t) > time_limit:
             LOGGER.warning(f'WARNING: NMS time limit {time_limit:.3f}s exceeded')
             break  # time limit exceeded
-
-    return output
+    '''
+    #print("boxes for each image:")
+    #print(len(boxes))
+    #print("scores for each image:")
+    #print(len(scores))
+    # #of frames x 4 | # of frames x 1
+    return boxes,scores, meta
 
 
 def strip_optimizer(f='best.pt', s=''):  # from utils.general import *; strip_optimizer()

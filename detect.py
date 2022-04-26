@@ -30,7 +30,13 @@ import sys
 from pathlib import Path
 
 import torch
+import time
+import numpy
 import torch.backends.cudnn as cudnn
+
+#----------------
+from seq_nms_try import dsnms 
+#-------------
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -107,6 +113,9 @@ def run(
     # Run inference
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
+    boxes=[]
+    scores=[]
+    meta=[]
     for path, im, im0s, vid_cap, s in dataset:
         t1 = time_sync()
         im = torch.from_numpy(im).to(device)
@@ -121,16 +130,25 @@ def run(
         visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
         pred = model(im, augment=augment, visualize=visualize)
         t3 = time_sync()
-        dt[1] += t3 - t2
+        #dt[1] += t3 - t2
 
         # NMS
-        pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
-        dt[2] += time_sync() - t3
+        box,score,meta_kid = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
+        #print("box -- fucn return:")
+        #print(box)
+        #print("score -- func return:")
+        #print(score)
+        #dt[2] += time_sync() - t3
+        # new code 
+        meta.append(meta_kid)
+        boxes.append(box)
+        scores.append(score)
 
         # Second-stage classifier (optional)
         # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
 
         # Process predictions
+        '''
         for i, det in enumerate(pred):  # per image
             seen += 1
             if webcam:  # batch_size >= 1
@@ -197,7 +215,7 @@ def run(
 
         # Print time (inference-only)
         LOGGER.info(f'{s}Done. ({t3 - t2:.3f}s)')
-
+    
     # Print results
     t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
     LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {(1, 3, *imgsz)}' % t)
@@ -206,8 +224,39 @@ def run(
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}{s}")
     if update:
         strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
+    '''
+    print("no of meta (video):")
+    print(numpy.array(meta).shape)
+    print("number of boxes (for whole video):")
+    print(numpy.array(boxes).shape)
+    print("no of scores (video):")
+    print(numpy.array(scores).shape)
+    #here-------------------
+    #print("boxes (before passing)-------------")
+    ##print(boxes)
+    #print("scores (before passing)------------")
+    #print(scores)
+    res=[]
+    for i in range(len(scores)):
+      r=[meta[i],scores[i],boxes[1]]
+      res.append(r)
+    
+    #res=["",scores,boxes]
+    ##print("res------(before)")
+    #print(res)
+    nms_begin=time.time()
+    print("func exec start--------------")
+    boxes, classes, scores = dsnms(res)
+    nms_end=time.time()
+    print("end---------------------")
+    print ('total nms: {:.4f}s'.format(nms_end - nms_begin))
+    print("----------------------------------")
+    print("FInal OUTPUT")
+    print("scores--------------------------")
+    print(scores)
+    return boxes, scores, meta
 
-
+  
 def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'yolov5s.pt', help='model path(s)')
