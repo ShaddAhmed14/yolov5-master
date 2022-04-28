@@ -8,6 +8,10 @@ from matplotlib import pyplot as plt
 from PIL import Image
 import scipy.misc
 
+'''
+This file has code needed for running seq_nms after standard yolov5 sends predictions. 
+'''
+
 # CLASSES=("__background__","person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light","fire hydrant","stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe","backpack","umbrella","handbag","tie","suitcase","frisbee","skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle","wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed","dining table","toilet","tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven","toaster","sink","refrigerator","book","clock","vase","scissors","teddy bear","hair drier","toothbrush")
 CLASSES= ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
         'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
@@ -24,43 +28,96 @@ IOU_THRESH = 0.6
 IOU_THRESH_DELETE = 0.3
 
 
+'''
+Takes res as input. Which is [r] where r is [[meta], [scores], [boxes]] | [x] where x is [meta, scores, boxes]
+res is a list of r | r is a list of x | x is list of meta, scores, boxes
+res is for frames | r is boxes,scores,meta / x for 1 frame | x is for 1 box
+res is for all frames
+r is for all boxes
+x is for a box
 
-
+which is basically... for each frame, what is its meta and what are scores of each boxes
 def createInputs(res):
     create_begin=time.time()
-    # print("CLASSES:\n", CLASSES)
-    #print("res (boxes)----------------")
+    dets=[[] for i in CLASSES[1:]] # ...
+    for cls_ind,cls in enumerate(CLASSES[1:]): # for all classes 
+        for frame_ind,frame in enumerate(res): # for all frames in the video  
+                    # contains list of items for 1 frame where 1 item is list of scores for each box etc 
+                    cls_boxes = np.zeros((len(res[frame_ind]), 4), dtype=np.float64) # for 1 frame
+                    cls_scores = np.zeros((len(res[frame_ind]), 1), dtype=np.float64)
+                    for box_ind, box in enumerate(frame): # for all items in the frame 
+                        # item/box -> meta, score, box | box -> a,b,c,d 
+                        cls_boxes[box_ind][0] = box[2][0]-box[2][2]/2
+                        cls_boxes[box_ind][1] = box[2][1]-box[2][3]/2
+                        cls_boxes[box_ind][2] = box[2][0]+box[2][2]/2
+                        cls_boxes[box_ind][3] = box[2][1]+box[2][3]/2
+                        if str(box[0], 'utf-8')==cls: # checking the meta/label 
+                            cls_scores[box_ind][0] = box[1] # updating the score 
+                        else:
+                            cls_scores[box_ind][0] = 0.00001
+            cls_dets = np.hstack((cls_boxes,cls_scores)).astype(np.float64)
+            dets[cls_ind].append(cls_dets)
+    create_end=time.time()
+    print ('create inputs: {:.4f}s'.format(create_end - create_begin))
+    return dets
+'''
+def createInputs(res):
+    create_begin=time.time()
+    #print("res----------------")
     #print(res)
-    dets=[[] for i in CLASSES[1:]] #保存最终结果
-    for cls_ind,cls in enumerate(CLASSES[1:]): #类
-        for frame_ind,frame in enumerate(res):
-            cls_boxes = np.zeros((len(res[frame_ind]), 4), dtype=np.float64)
-            cls_scores = np.zeros((len(res[frame_ind]), 1), dtype=np.float64)
-            #print("frame:---------------")
-            #print(frame)
-            for i in range(len(frame[1])):
-                #print("single box frmae[i][0]--------------------")
-                #print(frame[2][i]) # shoudl be box
-                #temp=np.zeros(2,2)
-                cls_boxes[i][0] = frame[2][i][0][0]-frame[2][i][0][2]/2 #it hsould be modified x1
-                cls_boxes[i][1] = frame[2][i][0][1]-frame[2][i][0][3]/2 #modfied x2
-                cls_boxes[i][2] = frame[2][i][0][0]+frame[2][i][0][2]/2 #y1
-                cls_boxes[i][3] = frame[2][i][0][1]+frame[2][i][0][3]/2 #y2
-                #print("temp")
-                #cls_boxes[i][0]=temp1
-                #cls_boxes[i][1]=temp2
-                #print(temp1)
-                # print("farme[0]")
-                if(len(frame[0][i]) > 0):
+    dets=[[] for i in CLASSES[1:]] 
+    for cls_ind,cls in enumerate(CLASSES[1:]): # for all classes | cls_ind -> class index | cls-> class 
+        for frame_ind,frame in enumerate(res): # for all frames in the video 
+            #cls_boxes = np.zeros((len(res[frame_ind]), 4), dtype=np.float64) # lenght of the frame | 4 means a b c d
+            #cls_scores = np.zeros((len(res[frame_ind]), 1), dtype=np.float64) # 1 -> main score
+            # print("1 frame")
+            # print(frame, "\n lenght of frame", len(frame))
+            # cls_boxes = np.zeros((len(frame[0][1]), 4), dtype=np.float64) # lenght of the frame | 4 means a b c d
+            cls_boxes = np.zeros((len(frame), 4), dtype=np.float64) # lenght of the frame | 4 means a b c d
+            cls_scores = np.zeros((len(frame), 1), dtype=np.float64) # 1 -> main score 
+            #print("frame[0]:---------------")
+            #print(frame[0])
+            #print(len(frame[0])) # extra encapsualtion, so frame[1][0]
+            # frame=frame[0]
+            # print("shape of cls_box:")
+            # print(cls_boxes.shape)
+
+            for i in range(len(frame)): # len of frame 1 will tell the number of boxes | should be frame_id? CHECK
+                # frame[2] -> all boxes in that frame 
+                # i will handle 1 box
+                # WHY frame[2][i][0][0]-frame[2][i][0][2]/2 instead of frame[2][i][0]-frame[2][i][2]/2
+                # print(len(frame[1])==len(frame[2]))
+                # print(len(frame[1]))
+                # print(len(frame[2]))
+                # print("INSIDE 1 BOX: ")
+                # print(frame[i])
+                # print(i)
+                #cls_boxes[i][0]
+                # cls_boxes[i][0] = frame[2][i][0]-frame[2][i][2]/2 # it hsould be modified x1
+                cls_boxes[i][0] = frame[i][2][0]-frame[i][2][2]/2 # it hsould be modified x1
+                cls_boxes[i][1] = frame[i][2][1]-frame[i][2][3]/2 # modfied x2
+                cls_boxes[i][2] = frame[i][2][0]+frame[i][2][2]/2 # y1
+                cls_boxes[i][3] = frame[i][2][1]+frame[i][2][3]/2 # y2
+
+                #print(frame[0][i])
+                #if(len(frame[0][i]) > 0): # frame 0 is meta | if it has a meta?
                   # if(cls=="bird"):
                   #   print(frame[0], cls, CLASSES[frame[0][i][0]])
                   #   print(np.array(frame[1][0]).max())
-                  if CLASSES[frame[0][i][0]]==cls:
-                      print("MODEL SAID YES !!!")
-                      print(CLASSES[frame[0][i][0]])
-                      cls_scores[i][0] = np.array(frame[1][0]).max()
-                  else:
-                      cls_scores[i][0] = 0.00001
+                # print(frame[0][0][i])
+                # if CLASSES[frame[0][0][i]]==cls: # why 0 
+                # print("label is \n", frame[i][0][0], CLASSES[frame[i][0][0]], cls)
+                if CLASSES[frame[i][0][0]]==cls: # why 0 
+                    if(cls=="bird"):
+                      print("MODEL SA ID YES !!!")
+                    # print(CLASSES[frame[i][0][0]])
+                    # cls_scores[i][0] = np.array(frame[1][i])#[0]).max() # why 0
+                    cls_scores[i][0] = np.array(frame[i][1][0])#[0]).max() # why 0
+                else:
+                    if(cls=="bird"):
+                      print("label is: ", CLASSES[frame[i][0][0]], cls, CLASSES[frame[i][0][0]]==cls)                
+                    cls_scores[i][0] = 0.00001
+
             cls_dets = np.hstack((cls_boxes,cls_scores)).astype(np.float64)
             dets[cls_ind].append(cls_dets)
     create_end=time.time()
@@ -233,19 +290,6 @@ def dsnms(res):
     boxes=[[] for i in dets[0]]
     classes=[[] for i in dets[0]]
     scores=[[] for i in dets[0]]    
-    #for max_path in max_paths:
-    #    cls_ind = max_path[0]
-    #    rootindex = max_path[1]
-    #    maxpath = max_path[2]
-    #    for i,box_ind in enumerate(maxpath):
-    #        ymin = dets[cls_ind][rootindex+i][box_ind][1]
-    #        xmin = dets[cls_ind][rootindex+i][box_ind][0]
-    #        ymax = dets[cls_ind][rootindex+i][box_ind][3]
-    #        xmax = dets[cls_ind][rootindex+i][box_ind][2]
-    #        score = dets[cls_ind][rootindex+i][box_ind][4]
-    #        boxes[rootindex+i].append(np.array([ymin, xmin, ymax, xmax]))
-    #        classes[rootindex+i].append(cls_id+1)
-    #        scores[rootindex+i].append(score)
     for cls_id, det_cls in enumerate(dets):
         for frame_id, frame in enumerate(det_cls):
             for box_id, box in enumerate(frame):
@@ -256,6 +300,7 @@ def dsnms(res):
                     xmin = box[0]
                     ymax = box[3]
                     xmax = box[2]
+                    # if box[4] != []:
                     boxes[frame_id].append(np.array([ymin, xmin, ymax, xmax]))
                     classes[frame_id].append(cls_id+1)
                     scores[frame_id].append(box[4])

@@ -50,7 +50,18 @@ from utils.general import (LOGGER, check_file, check_img_size, check_imshow, che
                            increment_path, non_max_suppression, print_args, scale_coords, strip_optimizer, xyxy2xywh)
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
+import numpy as np
 
+
+CLASSES= ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+        'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+        'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+        'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+        'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+        'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+        'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+        'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
+        'hair drier', 'toothbrush']
 
 @torch.no_grad()
 def run(
@@ -128,21 +139,26 @@ def run(
 
         # Inference
         visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
-        pred = model(im, augment=augment, visualize=visualize)
+        pred = model(im, augment=augment, visualize=visualize) # baseline prediction
         t3 = time_sync()
         #dt[1] += t3 - t2
 
         # NMS
         box,score,meta_kid = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
+        # print("IN detect M S B", len(meta_kid),len(score), len(box))
+        # box,score,meta_kid = non_max_suppression(pred, conf_thres, iou_thres, CLASSES, agnostic_nms, max_det=max_det)
         #print("box -- fucn return:")
         #print(box)
         #print("score -- func return:")
         #print(score)
-        #dt[2] += time_sync() - t3
+        dt[2] += time_sync() - t3
         # new code 
+        #here-------------------
         meta.append(meta_kid)
         boxes.append(box)
         scores.append(score)
+        # print("ADDED M S B: \n", len(meta), len(scores), len(boxes))
+        #here-------------------
 
         # Second-stage classifier (optional)
         # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
@@ -231,19 +247,31 @@ def run(
     print(numpy.array(boxes).shape)
     print("no of scores (video):")
     print(numpy.array(scores).shape)
+    # print("SCORES, META, BOXES ---------------- \n", scores[1],"\n", meta[1], "\n",boxes[1])
+    print("SCORES, META, BOXES ---------------- \n", len(scores),"\n", len(meta), "\n",len(boxes))
     #here-------------------
-    #print("boxes (before passing)-------------")
-    ##print(boxes)
-    #print("scores (before passing)------------")
-    #print(scores)
     res=[]
-    for i in range(len(scores)):
-      r=[meta[i],scores[i],boxes[1]]
+    # scores = scores[0]
+    # meta = meta[0]
+    # boxes = boxes[0]
+    for i in range(len(scores)): # converting to the seqnms format 
+      r=[]
+      # print(i,  range(len(scores)))
+      # if len(scores[i][0])>0:
+      if scores[i] != []:
+        # print(len(scores[i][0]))
+        for j in range(len(scores[i][0])):
+            if(scores[i][0][j][0] > 0.25):
+              r.append([meta[i][0][j],scores[i][0][j],boxes[i][0][j]])
+      # else:
+        # r.append([])
+        # print("OOPS", scores[i])
       res.append(r)
-    
+    #here-------------------
+
     #res=["",scores,boxes]
-    ##print("res------(before)")
-    #print(res)
+    # print("res------(before)")
+    # print(res[0])
     nms_begin=time.time()
     print("func exec start--------------")
     boxes, classes, scores = dsnms(res)
@@ -254,7 +282,13 @@ def run(
     print("FInal OUTPUT")
     print("scores--------------------------")
     print(scores)
-    return boxes, scores, meta
+    print(classes)
+    for c in classes:
+      if c != []:
+        print(CLASSES[c[0]], "," , end="") 
+    print(" ")
+    # print(CLASSES[classes[0]])
+    return boxes, scores
 
   
 def parse_opt():

@@ -757,6 +757,7 @@ def non_max_suppression(prediction,
     Returns:
          list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
+    # print("PRECITON \n", prediction.shape)
     bs = prediction.shape[0]  # batch size
     nc = prediction.shape[2] - 5  # number of classes
     xc = prediction[..., 4] > conf_thres  # candidates
@@ -789,13 +790,13 @@ def non_max_suppression(prediction,
         # # labels = CLASSES
         # # print(labels)
         # print("LABELS---------------------------------")
-        if labels and len(labels[xi]): # DOESNT RUN
-            lb = labels[xi]
-            v = torch.zeros((len(lb), nc + 5), device=x.device)
-            v[:, :4] = lb[:, 1:5]  # box
-            v[:, 4] = 1.0  # conf
-            v[range(len(lb)), lb[:, 0].long() + 5] = 1.0  # cls
-            x = torch.cat((x, v), 0)
+        # if labels and len(labels[xi]): # DOESNT RUN
+        #     lb = labels[xi]
+        #     v = torch.zeros((len(lb), nc + 5), device=x.device)
+        #     v[:, :4] = lb[:, 1:5]  # box
+        #     v[:, 4] = 1.0  # conf
+        #     v[range(len(lb)), lb[:, 0].long() + 5] = 1.0  # cls
+        #     x = torch.cat((x, v), 0)
 
         # If none remain process next image
         if not x.shape[0]:
@@ -806,79 +807,24 @@ def non_max_suppression(prediction,
 
         # Box (center x, center y, width, height) to (x1, y1, x2, y2)
         box = xywh2xyxy(x[:, :4])
-        #print("shape of box (of single image)")
-        #print(box.shape)
-
         boxes.append(box)
         # Detections matrix nx6 (xyxy, conf, cls)
-        #if multi_label:
-        conf, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
-        # conf, j = (x[:, 5:] > 0).nonzero(as_tuple=False).T
-        #    x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
-        #else:  # best class only
-        # print( x[:, 5:])
-        # conf, j = x[:, 5:] # .max(1, keepdim=True)
-        # conf = x[:, 5:] # .max(1, keepdim=True)
-        #    x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
-        # scores.append(conf)
-        # print(conf)
-        # if(len(conf) > 0):
-        #   scores.append(conf.max(0, keepdim=True))
-        # else: 
+        # print("CHECKING\n", (x[:, 5:] > conf_thres) )
+        # conf, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
+        
+        conf, j = x[:, 5:].max(1, keepdim=True)
+
         scores.append(conf)
-
         # ------------------- META -------------------
-        # meta_kid = []
-        # for j in range(len(conf)): # for all boxes...
-        #   for i in range(len(CLASSES)): # for all classes 
-        #       if conf[j][i] > 0: # if score for that class is > 0 | Append the class 
-        #           meta_kid.append(CLASSES[i])
-
         meta.append(j)
         # ------------------- META -------------------
 
-
-        #print("shape of score of single image")
-        #print(conf.shape)
-        # Filter by class
-        #if classes is not None:
-        #    x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
-
-        # Apply finite constraint
-        # if not torch.isfinite(x).all():
-        #     x = x[torch.isfinite(x).all(1)]
-
-        # Check shape
-        '''n = x.shape[0]  # number of boxes
-        if not n:  # no boxes
-            continue
-        elif n > max_nms:  # excess boxes
-            x = x[x[:, 4].argsort(descending=True)[:max_nms]]  # sort by confidence
-
-        # Batched NMS
-        c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
-        boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
-        i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
-        if i.shape[0] > max_det:  # limit detections
-            i = i[:max_det]
-        if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
-            # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-            iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
-            weights = iou * scores[None]  # box weights
-            x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
-            if redundant:
-                i = i[iou.sum(1) > 1]  # require redundancy
-
-        output[xi] = x[i]
-        if (time.time() - t) > time_limit:
-            LOGGER.warning(f'WARNING: NMS time limit {time_limit:.3f}s exceeded')
-            break  # time limit exceeded
-    '''
     #print("boxes for each image:")
     #print(len(boxes))
     #print("scores for each image:")
     #print(len(scores))
     # #of frames x 4 | # of frames x 1
+    # print("IN NMS M S B", len(meta),len(scores), len(boxes))
     return boxes,scores, meta
 
 
