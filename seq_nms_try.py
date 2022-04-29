@@ -108,14 +108,14 @@ def createInputs(res):
                 # if CLASSES[frame[0][0][i]]==cls: # why 0 
                 # print("label is \n", frame[i][0][0], CLASSES[frame[i][0][0]], cls)
                 if CLASSES[frame[i][0][0]]==cls: # why 0 
-                    if(cls=="bird"):
-                      print("MODEL SA ID YES !!!")
+                    # if(cls=="bird"):
+                      # print("MODEL SA ID YES !!!")
                     # print(CLASSES[frame[i][0][0]])
                     # cls_scores[i][0] = np.array(frame[1][i])#[0]).max() # why 0
                     cls_scores[i][0] = np.array(frame[i][1][0])#[0]).max() # why 0
                 else:
-                    if(cls=="bird"):
-                      print("label is: ", CLASSES[frame[i][0][0]], cls, CLASSES[frame[i][0][0]]==cls)                
+                    # if(cls=="bird"):
+                      # print("label is: ", CLASSES[frame[i][0][0]], cls, CLASSES[frame[i][0][0]]==cls)                
                     cls_scores[i][0] = 0.00001
 
             cls_dets = np.hstack((cls_boxes,cls_scores)).astype(np.float64)
