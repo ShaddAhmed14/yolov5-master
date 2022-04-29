@@ -47,6 +47,12 @@ python detect.py --source 0  # webcam
                           'rtsp://example.com/media.mp4'  # RTSP, RTMP, HTTP stream
 ```
 
+```bash
+# Example
+
+python detect.py --source  'https://www.youtube.com/watch?v=P1qHv44_wLQ'
+```
+
 </details>
 
 <details>
