@@ -15,6 +15,16 @@ This repo works performs post-processing with Sequential NMS on yolov5 to improv
 
 ## <div align="center">Set-Up and Inference</div>
 
+###<div align-"left"> Steps</div>
+<div>
+1. Install
+</div>
+<div>
+2. Inference
+</div>
+<div>
+Commands are given below.
+</div>
 <div align="left">
 <details open>
 <summary>Install</summary>
