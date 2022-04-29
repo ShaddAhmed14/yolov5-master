@@ -7,7 +7,7 @@ YOLOv5 is a family of object detection architectures and models pretrained on th
 </p>
  
 <p>
-This repo performs post-processing with Sequential NMS on yolov5 to improve results. The Seq-NMS method is adopted from <a href="https://arxiv.org/pdf/1602.08465.pdf">"Seq-NMS for Video Object Detection"</a>.
+This repo performs post-processing with Sequential NMS on yolov5 to improve results. The Seq-NMS method is adopted from <a href="https://github.com/lepori1/seq_nms_yolo/">"Seq-NMS for Video Object Detection"</a>.
 </p>
  
 </div>
