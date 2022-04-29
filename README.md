@@ -14,6 +14,7 @@ This repo works performs post-processing with Sequential NMS on yolov5 to improv
 
 ## <div align="center">Set-Up and Inference</div>
 
+##<div align="left">
 <details open>
 <summary>Install</summary>
 
@@ -67,4 +68,4 @@ python train.py --data coco.yaml --cfg yolov5n.yaml --weights '' --batch-size 12
 ```
 
 </details>
-
+</div>
