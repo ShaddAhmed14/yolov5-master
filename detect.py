@@ -402,7 +402,7 @@ def run(
     if update:
         strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
 
-    return boxes, scores
+    #return boxes, scores
 
   
 def parse_opt():
