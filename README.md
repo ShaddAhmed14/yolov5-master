@@ -1,7 +1,6 @@
-<div align="center">
-<br>
+<div align="center"> Yolov5 and Seq-NMS <div>
 
-<br>
+<div>
 <p>
 YOLOv5 is a family of object detection architectures and models pretrained on the COCO dataset, and represents <a href="https://ultralytics.com">Ultralytics</a>
  open-source research into future vision AI methods, incorporating lessons learned and best practices evolved over thousands of hours of research and development.
@@ -10,11 +9,13 @@ YOLOv5 is a family of object detection architectures and models pretrained on th
 <p>
 This repo works performs post-processing with Sequential NMS on yolov5 to improve results. The Seq-NMS method is adopted from <a href="https://arxiv.org/pdf/1602.08465.pdf">"Seq-NMS for Video Object Detection"</a>.
 </p>
+ 
+</div>
 
 
 ## <div align="center">Set-Up and Inference</div>
 
-##<div align="left">
+<div align="left">
 <details open>
 <summary>Install</summary>
 
