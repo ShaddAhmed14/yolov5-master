@@ -1,4 +1,4 @@
-## <div align="center">Yolov-5 and Seq-NMS</div>
+## <div align="center">YOLOv5 and Seq-NMS</div>
 
 <div>
 <p>
