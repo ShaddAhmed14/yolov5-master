@@ -24,8 +24,8 @@ Clone repo and install [requirements.txt](https://github.com/ultralytics/yolov5/
 [**PyTorch>=1.7**](https://pytorch.org/get-started/locally/).
 
 ```bash
-git clone https://github.com/ultralytics/yolov5  # clone
-cd yolov5
+git clone https://github.com/ShaddAhmed14/yolov5-master  # clone
+cd yolov5-master
 pip install -r requirements.txt  # install
 ```
 
