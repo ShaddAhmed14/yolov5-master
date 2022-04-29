@@ -23,9 +23,9 @@ This repo works performs post-processing with Sequential NMS on yolov5 to improv
 2. Inference
 </div>
 <div>
- <br>
- </br>
-    Commands are given below.
+<p>
+ </p>
+ <i>Please follow commands in sections below.</i>
  <p>
  </p>
 </div>
