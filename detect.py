@@ -127,6 +127,11 @@ def run(
     boxes=[]
     scores=[]
     meta=[]
+    paths=[]
+    sS=[]
+    im0ss=[]
+    ims=[]
+    vid_caps=[]
     for path, im, im0s, vid_cap, s in dataset:
         t1 = time_sync()
         im = torch.from_numpy(im).to(device)
@@ -141,6 +146,11 @@ def run(
         visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
         pred = model(im, augment=augment, visualize=visualize) # baseline prediction
         t3 = time_sync()
+        paths.append(path)
+        sS.append(s)
+        im0ss.append(im0s)
+        ims.append(im)
+        vid_caps.append(vid_cap)
         #dt[1] += t3 - t2
 
         # NMS
@@ -280,14 +290,118 @@ def run(
     print ('total nms: {:.4f}s'.format(nms_end - nms_begin))
     print("----------------------------------")
     print("FInal OUTPUT")
+    print("boxes--------------------")
+    print(boxes)
     print("scores--------------------------")
     print(scores)
+    print("classes--------------------------")
     print(classes)
     for c in classes:
       if c != []:
         print(CLASSES[c[0]], "," , end="") 
     print(" ")
     # print(CLASSES[classes[0]])
+
+    #--------------------------------
+    #formatting output in (n,6)
+    # n is number of boxes
+    # [x1,y1,x2,y2,score,cls]
+
+    output=[]
+    for i in range(len(scores)):
+      r=[]
+      for j in range(len(boxes[i])):
+        r.append([boxes[i][j][0],boxes[i][j][1],boxes[i][j][2], boxes[i][j][3], scores[i][j], classes[i][j]])
+      output.append(r)
+    
+    print("\nformatted output (n,6)")
+    print(output)
+
+    #---------------------SAVING OUTPUT--------------
+    for k in range(len(output)):
+      pred=output[k]
+      im0s=im0ss[k][0]
+      im=ims[k]
+      path=paths[k]
+      vid_cap=vid_caps[k]
+      s=sS[k]
+      for i, det in enumerate(pred):  # per image
+              seen += 1
+              if webcam:  # batch_size >= 1
+                  p, im0, frame = path[0], im0s[i].copy(), dataset.count
+                  s += f'{i}: '
+              else:
+                  p, im0, frame = path, im0s.copy(), getattr(dataset, 'frame', 0)
+
+              p = Path(p)  # to Path
+              save_path = str(save_dir / p.name)  # im.jpg
+              txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # im.txt
+              s += '%gx%g ' % im.shape[2:]  # print string
+              gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+              imc = im0.copy() if save_crop else im0  # for save_crop
+              annotator = Annotator(im0, line_width=line_thickness, example=str(names))
+              if len(det):
+                  # Rescale boxes from img_size to im0 size
+                  det=np.array([det])
+                  det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0.shape).round()
+
+                  # Print results
+                  for c in np.unique(det[:, -1]):
+                      n = (det[:, -1] == c).sum()  # detections per class
+                      s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
+
+                  # Write results
+                  for *xyxy, conf, cls in reversed(det):
+                      if save_txt:  # Write to file
+                          xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                          line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
+                          with open(txt_path + '.txt', 'a') as f:
+                              f.write(('%g ' * len(line)).rstrip() % line + '\n')
+
+                      if save_img or save_crop or view_img:  # Add bbox to image
+                          c = int(cls)  # integer class
+                          label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
+                          annotator.box_label(xyxy, label, color=colors(c, True))
+                          if save_crop:
+                              save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
+
+              # Stream results
+              im0 = annotator.result()
+              if view_img:
+                  cv2.imshow(str(p), im0)
+                  cv2.waitKey(1)  # 1 millisecond
+
+              # Save results (image with detections)
+              if save_img:
+                  if dataset.mode == 'image':
+                      cv2.imwrite(save_path, im0)
+                  else:  # 'video' or 'stream'
+                      if vid_path != save_path:  # new video
+                          vid_path = save_path
+                          if isinstance(vid_writer, cv2.VideoWriter):
+                              vid_writer.release()  # release previous video writer
+                          if vid_cap:  # video
+                              fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                              w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                              h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                          else:  # stream
+                              fps, w, h = 30, im0.shape[1], im0.shape[0]
+                          save_path = str(Path(save_path).with_suffix('.mp4'))  # force *.mp4 suffix on results videos
+                          vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+                      vid_writer.write(im0)
+
+          # Print time (inference-only)
+      LOGGER.info(f'{s}Done. ({t3 - t2:.3f}s)')
+    
+    # Print results
+    t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
+    LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {(1, 3, *imgsz)}' % t)
+    if save_txt or save_img:
+        s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
+        LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}{s}")
+    if update:
+        strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
+
     return boxes, scores
 
   
